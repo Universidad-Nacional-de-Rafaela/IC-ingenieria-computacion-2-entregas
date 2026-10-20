@@ -9,12 +9,12 @@
 
 // ---------- Configuración ----------
 static const uint8_t MESH_ID[6] = {0x77,0x77,0x77,0x77,0x77,0x77};
-#define MESH_PASSWORD "MeshPasswordG5"
-#define ROUTER_SSID   "UNRaf_Libre"
-#define ROUTER_PASS   "unraf2021"
-#define MQTT_HOST     "10.103.12.113"
+#define MESH_PASSWORD "password_mesh123"
+#define ROUTER_SSID   "IngComputacion"
+#define ROUTER_PASS   "IngCom2026"
+#define MQTT_HOST     "192.168.0.103"
 #define MQTT_PORT     1883
-static const uint8_t MAC_G5[6] = {0x3C,0xE9,0x0E,0x4C,0x8A,0x70};
+static const uint8_t MAC_G5[6] = {0x3C,0xE9,0x0E,0x4C,0x8A,0x70};   // 08:B6:1F:81:12:94
 
 typedef struct {
   char actuador[16];
@@ -52,8 +52,18 @@ void onMqtt(char* topic, byte* payload, unsigned int len) {
   memcpy(val, payload, len < 15 ? len : 15);
   Serial.printf("[MQTT] %s = %s\n", topic, val);
 
-  if (strcmp(topic, "casa/luz/") == 0)             enviarAG5("luz", val);
-  else if (strcmp(topic, "casa/ventilador/") == 0) enviarAG5("ventilador", val);
+  bool esOn  = (strcasecmp(val, "ON")  == 0);
+  bool esOff = (strcasecmp(val, "OFF") == 0);
+
+  if (strcmp(topic, "casa/luz/") == 0) {
+    if (esOn)       enviarAG5("luz", "1");
+    else if (esOff) enviarAG5("luz", "0");
+    else            enviarAG5("luz", val);        // ya viene 0/1
+  } else if (strcmp(topic, "casa/ventilador/") == 0) {
+    if (esOn)       enviarAG5("ventilador", "255");
+    else if (esOff) enviarAG5("ventilador", "0");
+    else            enviarAG5("ventilador", val); // número 0-255
+  }
 }
 
 void conectarMqtt() {
@@ -159,6 +169,14 @@ void setup() {
 }
 
 void loop() {
+
+  static uint32_t hb = 0;
+if (millis() - hb > 5000) {
+  hb = millis();
+  Serial.printf("[ESTADO] root=%d conIP=%d mqtt=%d\n",
+                esp_mesh_is_root(), rootConIP, mqtt.connected());
+}
+
   // Pruebas por Serial, sin broker: v/x = ventilador ON/OFF, l/k = luz ON/OFF
   if (Serial.available()) {
     char c = Serial.read();
